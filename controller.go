@@ -272,8 +272,8 @@ func (c *Controller) enqueueNetworkForDelete(obj interface{}) {
 }
 
 func newPod() *corev1.Pod {
-	return corev1.Pod{
-		ObjectMeta: corev1.ObjectMeta{
+	return *corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "podname",
 			Namespace: "default",
 		},
