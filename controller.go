@@ -227,6 +227,8 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	glog.Infof("[Neutron] Try to process network: %#v ...", network)
+	// demo test, create a pod
+	c.kubeclientset.CoreV1().Pods("defaults").Create(newPod())
 
 	// FIX ME: Do diff().
 	//
@@ -267,4 +269,21 @@ func (c *Controller) enqueueNetworkForDelete(obj interface{}) {
 		return
 	}
 	c.workqueue.AddRateLimited(key)
+}
+
+func newPod() *corev1.Pod {
+	return corev1.Pod{
+		ObjectMeta: corev1.ObjectMeta{
+			Name:      "podname",
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx",
+					Image: "nginx",
+				},
+			},
+		},
+	}
 }
