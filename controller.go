@@ -229,7 +229,14 @@ func (c *Controller) syncHandler(key string) error {
 
 	glog.Infof("[Neutron] Try to process network: %#v ...", network)
 	// demo test, create a pod
-	c.kubeclientset.CoreV1().Pods("defaults").Create(newPod())
+	glog.Infof("[Neutron] Try to process pod: %#v ...", newPod())
+	pod, err := c.kubeclientset.CoreV1().Pods("defaults").Create(newPod())
+	if err != nil {
+		glog.Infof("[Neutron] Try to process pod err is: %#v ...", err)
+
+	} else {
+		glog.Infof("[Neutron] Got pod: %#v ...", pod)
+	}
 
 	// FIX ME: Do diff().
 	//
