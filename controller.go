@@ -5,9 +5,15 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	samplecrdv1 "github.com/resouer/k8s-controller-custom-resource/pkg/apis/samplecrd/v1"
+	clientset "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned"
+	networkscheme "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned/scheme"
+	informers "github.com/resouer/k8s-controller-custom-resource/pkg/client/informers/externalversions/samplecrd/v1"
+	listers "github.com/resouer/k8s-controller-custom-resource/pkg/client/listers/samplecrd/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -19,12 +25,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
-	samplecrdv1 "github.com/resouer/k8s-controller-custom-resource/pkg/apis/samplecrd/v1"
-	clientset "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned"
-	networkscheme "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned/scheme"
-	informers "github.com/resouer/k8s-controller-custom-resource/pkg/client/informers/externalversions/samplecrd/v1"
-	listers "github.com/resouer/k8s-controller-custom-resource/pkg/client/listers/samplecrd/v1"
 )
 
 const controllerAgentName = "network-controller"
@@ -215,6 +215,14 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
+	}
+	// Get the Network resource with this namespace/name
+	nodes, err := c.nodeLister.List(labels.Everything())
+	if err != nil {
+		glog.Infof("[Node] Got node error: %#v ...", err)
+		return nil
+	} else {
+		glog.Infof("[Node] Got nodes : %#v ...", nodes)
 	}
 
 	// Get the Network resource with this namespace/name
