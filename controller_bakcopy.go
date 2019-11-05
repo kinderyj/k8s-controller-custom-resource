@@ -5,9 +5,14 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	samplecrdv1 "github.com/resouer/k8s-controller-custom-resource/pkg/apis/samplecrd/v1"
+	clientset "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned"
 	networkscheme "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned/scheme"
+	informers "github.com/resouer/k8s-controller-custom-resource/pkg/client/informers/externalversions/samplecrd/v1"
+	listers "github.com/resouer/k8s-controller-custom-resource/pkg/client/listers/samplecrd/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -37,8 +42,14 @@ const (
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
-	nodeLister    kubelisters.NodeLister
-	nodeSynced    cache.InformerSynced
+	// networkclientset is a clientset for our own API group
+	networkclientset clientset.Interface
+
+	networksLister listers.NetworkLister
+	networksSynced cache.InformerSynced
+
+	nodeLister kubelisters.NodeLister
+	nodeSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -54,7 +65,10 @@ type Controller struct {
 // NewController returns a new network controller
 func NewController(
 	kubeclientset kubernetes.Interface,
+	networkclientset clientset.Interface,
+	networkInformer informers.NetworkInformer,
 	nodeInformer kubeinformers.NodeInformer) *Controller {
+
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
 	// logged for sample-controller types.
@@ -66,13 +80,33 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
-		nodeLister:    nodeInformer.Lister(),
-		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Networks"),
-		recorder:      recorder,
+		kubeclientset:    kubeclientset,
+		networkclientset: networkclientset,
+		networksLister:   networkInformer.Lister(),
+		networksSynced:   networkInformer.Informer().HasSynced,
+		nodeLister:       nodeInformer.Lister(),
+		nodeSynced:       nodeInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Networks"),
+		recorder:         recorder,
 	}
 
 	glog.Info("Setting up event handlers")
+	// Set up an event handler for when Network resources change
+	networkInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.enqueueNetwork,
+		UpdateFunc: func(old, new interface{}) {
+			oldNetwork := old.(*samplecrdv1.Network)
+			newNetwork := new.(*samplecrdv1.Network)
+			if oldNetwork.ResourceVersion == newNetwork.ResourceVersion {
+				// Periodic resync will send update events for all known Networks.
+				// Two different versions of the same Network will always have different RVs.
+				return
+			}
+			controller.enqueueNetwork(new)
+		},
+		DeleteFunc: controller.enqueueNetworkForDelete,
+	})
+
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.enqueueNode,
 		DeleteFunc: controller.enqueueNodeForDelete,
@@ -182,15 +216,21 @@ func (c *Controller) processNextWorkItem() bool {
 func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	glog.Infof("[syncHandler] Got new key: %#v", key)
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		return nil
+	}
+
 	// Get all Nodes
 	nodes, err := c.nodeLister.List(labels.Everything())
 	if err != nil {
 		glog.Infof("[Node] Got node error: %#v ...", err)
 		return nil
+	} else {
+		glog.Infof("[Node] Got nodes : %#v ...", nodes)
+		glog.Infof("[Node] Got nodes num: %#v ...", len(nodes))
 	}
-
-	glog.Infof("[Node] Got nodes : %#v ...", nodes)
-	glog.Infof("[Node] Got nodes num: %#v ...", len(nodes))
 
 	// Get the Node resource with this node name
 	node, err := c.nodeLister.Get(key)
@@ -198,11 +238,35 @@ func (c *Controller) syncHandler(key string) error {
 		if errors.IsNotFound(err) {
 			glog.Warningf("[Node]: %s does not exist in local cache, will delete it from whitelist", node)
 			glog.Infof("[Node]: Deleting Node from whitelist: %s ...", node)
+
 			// FIX ME: call os API to delete this node by name.
 			//
 			// os.Delete(name)
 			return nil
 		}
+	}
+
+	// Get the Network resource with this namespace/name
+	network, err := c.networksLister.Networks(namespace).Get(name)
+	if err != nil {
+		// The Network resource may no longer exist, in which case we stop
+		// processing.
+		if errors.IsNotFound(err) {
+			glog.Warningf("Network: %s/%s does not exist in local cache, will delete it from Neutron ...",
+				namespace, name)
+
+			glog.Infof("[Neutron] Deleting network: %s/%s ...", namespace, name)
+
+			// FIX ME: call Neutron API to delete this network by name.
+			//
+			// neutron.Delete(namespace, name)
+
+			return nil
+		}
+
+		runtime.HandleError(fmt.Errorf("failed to list network by: %s/%s", namespace, name))
+
+		return err
 	}
 
 	glog.Infof("[Neutron] Try to process network: %#v ...", network)
@@ -220,6 +284,7 @@ func (c *Controller) syncHandler(key string) error {
 	glog.Infof("[Node] Try to process node: %#v ...", key)
 	glog.Infof("[Node] Try to check whether node: %#v in the whitelist", key)
 	glog.Infof("[Node] Try add node: %#v to the whitelist", key)
+	//
 	// actualNetwork, exists := neutron.Get(namespace, name)
 	//
 	// if !exists {
@@ -230,6 +295,19 @@ func (c *Controller) syncHandler(key string) error {
 
 	c.recorder.Event(network, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
+}
+
+// enqueueNetwork takes a Network resource and converts it into a namespace/name
+// string which is then put onto the work queue. This method should *not* be
+// passed resources of any type other than Network.
+func (c *Controller) enqueueNetwork(obj interface{}) {
+	var key string
+	var err error
+	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.workqueue.AddRateLimited(key)
 }
 
 func (c *Controller) enqueueNode(obj interface{}) {
@@ -243,5 +321,36 @@ func (c *Controller) enqueueNodeForDelete(obj interface{}) {
 	glog.Infof("[Node] Try enqueueNodeForDelete node: %#v ", obj)
 	if key, ok := obj.(*corev1.Node); ok {
 		c.workqueue.AddRateLimited(key.ObjectMeta.Name)
+	}
+}
+
+// enqueueNetworkForDelete takes a deleted Network resource and converts it into a namespace/name
+// string which is then put onto the work queue. This method should *not* be
+// passed resources of any type other than Network.
+func (c *Controller) enqueueNetworkForDelete(obj interface{}) {
+	var key string
+	var err error
+	key, err = cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.workqueue.AddRateLimited(key)
+}
+
+func newPod() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "podname",
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx",
+					Image: "nginx",
+				},
+			},
+		},
 	}
 }

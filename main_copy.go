@@ -5,10 +5,16 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/resouer/k8s-controller-custom-resource/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
+	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	clientset "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned"
+	informers "github.com/resouer/k8s-controller-custom-resource/pkg/client/informers/externalversions"
+	"github.com/resouer/k8s-controller-custom-resource/pkg/signals"
 )
 
 var (
@@ -31,10 +37,21 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
+
+	networkClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		glog.Fatalf("Error building example clientset: %s", err.Error())
+	}
+
+	networkInformerFactory := informers.NewSharedInformerFactory(networkClient, time.Second*30)
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	controller := NewController(kubeClient, networkClient,
+		networkInformerFactory.Samplecrd().V1().Networks(),
 		kubeInformerFactory.Core().V1().Nodes())
+
+	go networkInformerFactory.Start(stopCh)
 	go kubeInformerFactory.Start(stopCh)
+
 	if err = controller.Run(2, stopCh); err != nil {
 		glog.Fatalf("Error running controller: %s", err.Error())
 	}
