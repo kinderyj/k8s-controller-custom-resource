@@ -94,10 +94,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.networksSynced); !ok {
-		return fmt.Errorf("failed to wait for caches to sync")
-	}
-
 	if ok := cache.WaitForCacheSync(stopCh, c.nodeSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -204,18 +200,6 @@ func (c *Controller) syncHandler(key string) error {
 			return nil
 		}
 	}
-
-	glog.Infof("[Neutron] Try to process network: %#v ...", network)
-	// demo test, create a pod
-	glog.Infof("[Neutron] Try to process pod: %#v ...", newPod())
-	pod, err := c.kubeclientset.CoreV1().Pods("default").Create(newPod())
-	if err != nil {
-		glog.Infof("[Neutron] Try to process pod err is: %#v ...", err)
-
-	} else {
-		glog.Infof("[Neutron] Got pod: %#v ...", pod)
-	}
-
 	// FIX ME: Do diff().
 	glog.Infof("[Node] Try to process node: %#v ...", key)
 	glog.Infof("[Node] Try to check whether node: %#v in the whitelist", key)
@@ -228,7 +212,7 @@ func (c *Controller) syncHandler(key string) error {
 	// 	neutron.Update(namespace, name)
 	// }
 
-	c.recorder.Event(network, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	c.recorder.Event(node, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 

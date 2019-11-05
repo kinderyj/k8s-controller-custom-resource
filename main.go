@@ -32,8 +32,7 @@ func main() {
 		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	controller := NewController(kubeClient, networkClient,
-		kubeInformerFactory.Core().V1().Nodes())
+	controller := NewController(kubeClient, kubeInformerFactory.Core().V1().Nodes())
 	go kubeInformerFactory.Start(stopCh)
 	if err = controller.Run(2, stopCh); err != nil {
 		glog.Fatalf("Error running controller: %s", err.Error())
