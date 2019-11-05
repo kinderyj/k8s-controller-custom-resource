@@ -68,6 +68,7 @@ func NewController(
 	controller := &Controller{
 		kubeclientset: kubeclientset,
 		nodeLister:    nodeInformer.Lister(),
+		nodeSynced:    nodeInformer.Informer().HasSynced,
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Networks"),
 		recorder:      recorder,
 	}
