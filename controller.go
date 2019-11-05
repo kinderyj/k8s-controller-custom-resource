@@ -218,14 +218,14 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 func (c *Controller) enqueueNode(obj interface{}) {
-	glog.Infof("[Node] Try enqueueNode node: %#v ", obj)
+	//glog.Infof("[Node] Try enqueueNode node: %#v ", obj)
 	if key, ok := obj.(*corev1.Node); ok {
 		c.workqueue.AddRateLimited(key.ObjectMeta.Name)
 	}
 }
 
 func (c *Controller) enqueueNodeForDelete(obj interface{}) {
-	glog.Infof("[Node] Try enqueueNodeForDelete node: %#v ", obj)
+	//glog.Infof("[Node] Try enqueueNodeForDelete node: %#v ", obj)
 	if key, ok := obj.(*corev1.Node); ok {
 		c.workqueue.AddRateLimited(key.ObjectMeta.Name)
 	}
