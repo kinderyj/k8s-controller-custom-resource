@@ -311,14 +311,12 @@ func (c *Controller) enqueueNetwork(obj interface{}) {
 }
 
 func (c *Controller) enqueueNode(obj interface{}) {
-	var key string
 	if key, ok := obj.(string); ok {
 		c.workqueue.AddRateLimited(key)
 	}
 }
 
 func (c *Controller) enqueueNodeForDelete(obj interface{}) {
-	var key string
 	if key, ok := obj.(string); ok {
 		c.workqueue.AddRateLimited(key)
 	}
