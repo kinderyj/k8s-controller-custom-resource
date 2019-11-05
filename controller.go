@@ -48,7 +48,7 @@ type Controller struct {
 	networksLister listers.NetworkLister
 	networksSynced cache.InformerSynced
 
-	nodeLister kubelisters.NetworkLister
+	nodeLister kubelisters.NodeLister
 	nodeSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
