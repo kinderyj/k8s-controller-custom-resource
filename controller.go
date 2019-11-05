@@ -132,6 +132,10 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
+	if ok := cache.WaitForCacheSync(stopCh, c.nodeSynced); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
 	glog.Info("Starting workers")
 	// Launch two workers to process Network resources
 	for i := 0; i < threadiness; i++ {
@@ -211,13 +215,13 @@ func (c *Controller) processNextWorkItem() bool {
 // with the current status of the resource.
 func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
-	glog.Infof("[syncHandler] Got new key error: %#v ...", key)
+	//glog.Infof("[syncHandler] Got new key: %#v", key)
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
-	// Get the Network resource with this namespace/name
+	// Get the Node resource with this namespace/name
 	nodes, err := c.nodeLister.List(labels.Everything())
 	if err != nil {
 		glog.Infof("[Node] Got node error: %#v ...", err)
