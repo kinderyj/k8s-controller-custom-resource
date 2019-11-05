@@ -11,9 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	kubelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -46,6 +48,9 @@ type Controller struct {
 	networksLister listers.NetworkLister
 	networksSynced cache.InformerSynced
 
+	nodeLister kubelisters.NetworkLister
+	nodeSynced cache.InformerSynced
+
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -61,7 +66,8 @@ type Controller struct {
 func NewController(
 	kubeclientset kubernetes.Interface,
 	networkclientset clientset.Interface,
-	networkInformer informers.NetworkInformer) *Controller {
+	networkInformer informers.NetworkInformer,
+	nodeInformer kubeinformers.NodeInformer) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -78,6 +84,8 @@ func NewController(
 		networkclientset: networkclientset,
 		networksLister:   networkInformer.Lister(),
 		networksSynced:   networkInformer.Informer().HasSynced,
+		nodeLister:       nodeInformer.Lister(),
+		nodeSynced:       nodeInformer.Informer().HasSynced,
 		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Networks"),
 		recorder:         recorder,
 	}
@@ -96,6 +104,11 @@ func NewController(
 			}
 			controller.enqueueNetwork(new)
 		},
+		DeleteFunc: controller.enqueueNetworkForDelete,
+	})
+
+	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.enqueueNetwork,
 		DeleteFunc: controller.enqueueNetworkForDelete,
 	})
 
