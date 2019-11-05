@@ -50,6 +50,7 @@ func main() {
 		kubeInformerFactory.Core().V1().Nodes())
 
 	go networkInformerFactory.Start(stopCh)
+	go kubeInformerFactory.Start(stopCh)
 
 	if err = controller.Run(2, stopCh); err != nil {
 		glog.Fatalf("Error running controller: %s", err.Error())
