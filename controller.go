@@ -108,8 +108,8 @@ func NewController(
 	})
 
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.enqueueNetwork,
-		DeleteFunc: controller.enqueueNetworkForDelete,
+		AddFunc:    controller.enqueueNode,
+		DeleteFunc: controller.enqueueNodeForDelete,
 	})
 
 	return controller
@@ -221,7 +221,8 @@ func (c *Controller) syncHandler(key string) error {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
-	// Get the Node resource with this namespace/name
+
+	// Get all Nodes
 	nodes, err := c.nodeLister.List(labels.Everything())
 	if err != nil {
 		glog.Infof("[Node] Got node error: %#v ...", err)
@@ -229,6 +230,20 @@ func (c *Controller) syncHandler(key string) error {
 	} else {
 		glog.Infof("[Node] Got nodes : %#v ...", nodes)
 		glog.Infof("[Node] Got nodes num: %#v ...", len(nodes))
+	}
+
+	// Get the Node resource with this node name
+	nodes, err := c.nodeLister.Get(key)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			glog.Warningf("[Node]: %s does not exist in local cache, will delete it from whitelist", name)
+			glog.Infof("[Node]: Deleting Node from whitelist: %s ...", name)
+
+			// FIX ME: call os API to delete this node by name.
+			//
+			// os.Delete(name)
+			return nil
+		}
 	}
 
 	// Get the Network resource with this namespace/name
@@ -266,6 +281,9 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// FIX ME: Do diff().
+	glog.Infof("[Node] Try to process node: %#v ...", key)
+	glog.Infof("[Node] Try to check whether node: %#v in the whitelist", key)
+	glog.Infof("[Node] Try add node: %#v to the whitelist", key)
 	//
 	// actualNetwork, exists := neutron.Get(namespace, name)
 	//
@@ -290,6 +308,20 @@ func (c *Controller) enqueueNetwork(obj interface{}) {
 		return
 	}
 	c.workqueue.AddRateLimited(key)
+}
+
+func (c *Controller) enqueueNode(obj interface{}) {
+	var key string
+	if key, ok := obj.(string); ok {
+		c.workqueue.AddRateLimited(key)
+	}
+}
+
+func (c *Controller) enqueueNodeForDelete(obj interface{}) {
+	var key string
+	if key, ok := obj.(string); ok {
+		c.workqueue.AddRateLimited(key)
+	}
 }
 
 // enqueueNetworkForDelete takes a deleted Network resource and converts it into a namespace/name
