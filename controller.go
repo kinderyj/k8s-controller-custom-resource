@@ -223,6 +223,7 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	} else {
 		glog.Infof("[Node] Got nodes : %#v ...", nodes)
+		glog.Infof("[Node] Got nodes num: %#v ...", len(nodes))
 	}
 
 	// Get the Network resource with this namespace/name
