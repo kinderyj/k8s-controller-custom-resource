@@ -198,7 +198,7 @@ func (c *Controller) syncHandler(key string) error {
 		if errors.IsNotFound(err) {
 			glog.Warningf("[Node]: %s does not exist in local cache, will delete it from whitelist", key)
 			glog.Infof("[Node]: Deleting Node from whitelist: %s ...", key)
-			wl.DeleteIPFromWhiteList(filepath, node)
+			wl.DeleteIPFromWhiteList(filepath, key)
 			// FIX ME: call os API to delete this node by name.
 			//
 			// os.Delete(name)
