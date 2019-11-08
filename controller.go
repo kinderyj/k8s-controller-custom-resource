@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/glog"
 	networkscheme "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned/scheme"
+	wl "github.com/resouer/k8s-controller-custom-resource/pkg/whitelist"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -31,6 +32,8 @@ const (
 	// MessageResourceSynced is the message used for an Event fired when a Network
 	// is synced successfully
 	MessageResourceSynced = "Network synced successfully"
+	// filepath is the path to whitelist file
+	filepath = "test.log"
 )
 
 // Controller is the controller implementation for Network resources
@@ -195,6 +198,7 @@ func (c *Controller) syncHandler(key string) error {
 		if errors.IsNotFound(err) {
 			glog.Warningf("[Node]: %s does not exist in local cache, will delete it from whitelist", key)
 			glog.Infof("[Node]: Deleting Node from whitelist: %s ...", key)
+			wl.DeleteIPFromWhiteList(filepath, node)
 			// FIX ME: call os API to delete this node by name.
 			//
 			// os.Delete(name)
