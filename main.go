@@ -4,8 +4,9 @@ import (
 	"flag"
 	"time"
 
+	"edgeNodeController/pkg/signals"
+
 	"github.com/golang/glog"
-	"github.com/resouer/k8s-controller-custom-resource/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"

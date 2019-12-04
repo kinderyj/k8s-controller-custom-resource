@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	networkscheme "edgeNodeController/pkg/client/clientset/versioned/scheme"
+
 	"github.com/golang/glog"
-	networkscheme "github.com/resouer/k8s-controller-custom-resource/pkg/client/clientset/versioned/scheme"
 	wl "github.com/resouer/k8s-controller-custom-resource/pkg/whitelist"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,7 +24,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-const controllerAgentName = "network-controller"
+const controllerAgentName = "whitelist-controller"
 
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a Network is synced
@@ -31,7 +32,7 @@ const (
 
 	// MessageResourceSynced is the message used for an Event fired when a Network
 	// is synced successfully
-	MessageResourceSynced = "Network synced successfully"
+	MessageResourceSynced = "Node whitelist synced successfully"
 	// filepath is the path to whitelist file
 	filepath = "test.log"
 )
